@@ -18,7 +18,7 @@ namespace InstagramTokenRefresh.Controllers
        
         public JsonResult GetToken(int clientid)
         {
-            var accessToken = "0";
+    
 
             var optionsBuilder = new DbContextOptionsBuilder<InstagramDbContext>();
             optionsBuilder.UseSqlServer("Data Source=webs.bozell.com;Initial Catalog=Instagram;Persist Security Info=True;User ID=sa;Password=orajen1411!");
@@ -48,6 +48,39 @@ namespace InstagramTokenRefresh.Controllers
 
             return Json(token);
            
+        }
+
+
+        public ActionResult GetTokenScript(int clientid)
+        {
+
+            var optionsBuilder = new DbContextOptionsBuilder<InstagramDbContext>();
+            optionsBuilder.UseSqlServer("Data Source=webs.bozell.com;Initial Catalog=Instagram;Persist Security Info=True;User ID=sa;Password=orajen1411!");
+
+            var db = new InstagramDbContext(optionsBuilder.Options);
+            var token = db.Tokens.Include("Client").SingleOrDefault(x => x.Id == clientid);
+
+            if (token.DateModified < DateTime.Now.AddDays(-1))
+            {
+                using (var wb = new WebClient())
+                {
+                    var response = wb.DownloadString("https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=" + token.AccessToken);
+
+
+                    var json = Newtonsoft.Json.JsonConvert.DeserializeObject<InstagramResponse>(response);
+
+                    token.AccessToken = json.access_token;
+                    token.DateModified = DateTime.Now;
+
+
+                    db.SaveChanges();
+                }
+
+            }
+
+            return Content("const InstagramToken = '"+token.AccessToken+"';");
+
+
         }
 
     }
